@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      .bar {
+        background: red;
+      }
+      #visualization {
+        position: relative;
+        width: 80%;
+        margin: 0 auto;
+        margin-top: 200px;
+        overflow: hidden;
+      }
+      p {
+        display: block;
+        position: absolute;
+        right: 50px;
+        top: 50px;
+        font-size: 36px;
+        text-transform: uppercase;
+        font-weight: 700;
+        font-family: "Arial";
+        max-width: 0rem;
+        overflow: hidden;
+        word-break: break-all;
+        color: #190df0;
+      }
+      img {
+        position: absolute;
+        right: 50px;
+        top: 250px;
+        opacity: 0;
+        transform: translateX(120%);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="visualization">
+      <p class="title">Random statistics of 2021</p>
+      <img
+        class="image"
+        src="https://hieye.at/_nuxt/img/second-img.435f1c3.svg"
+        alt=""
+      />
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
