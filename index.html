@@ -1,60 +1,445 @@
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Document</title>
-    <script src="https://d3js.org/d3.v6.min.js"></script>
-    <style>
-      * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
-      }
-      .bar {
-        background: red;
-      }
-      #visualization {
-        position: relative;
-        width: 80%;
-        margin: 0 auto;
-        margin-top: 200px;
-        overflow: hidden;
-      }
-      p {
-        display: block;
-        position: absolute;
-        right: 50px;
-        top: 50px;
-        font-size: 36px;
-        text-transform: uppercase;
-        font-weight: 700;
-        font-family: "Arial";
-        max-width: 0rem;
-        overflow: hidden;
-        word-break: break-all;
-        color: #190df0;
-      }
-      img {
-        position: absolute;
-        right: 50px;
-        top: 250px;
-        opacity: 0;
-        transform: translateX(120%);
-      }
-    </style>
-  </head>
-  <body>
-    <div id="visualization">
-      <p class="title">Random statistics of 2021</p>
-      <img
-        class="image"
-        src="https://hieye.at/_nuxt/img/second-img.435f1c3.svg"
-        alt=""
-      />
-    </div>
+<meta charset="utf-8" />
+<style>
+  svg {
+    font: 10px sans-serif;
+  }
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  .bar {
+    fill: steelblue;
+    clip-path: url(#clip);
+  }
 
-    <script src="./app.js"></script>
-  </body>
-</html>
+  .subBar {
+    fill: gray;
+    opacity: 0.5;
+  }
+
+  .axis path,
+  .axis line {
+    fill: none;
+    stroke: #000;
+    shape-rendering: crispEdges;
+  }
+
+  .brush .extent {
+    stroke: #fff;
+    fill: steelblue;
+    fill-opacity: 0.25;
+    shape-rendering: crispEdges;
+  }
+
+  rect.mover {
+    stroke: red;
+    stroke-opacity: 0.1;
+    fill: lightSteelBlue;
+    fill-opacity: 0.5;
+  }
+  .main {
+    margin: 100px 0px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .block {
+    background: rgba(0, 0, 0, 0.03);
+    margin-bottom: 50px;
+    padding: 30px;
+    border-radius: 10px;
+  }
+  .title {
+    font-size: 36px;
+    font-weight: 400;
+    text-transform: uppercase;
+    font-family: "Arial";
+    color: black;
+  }
+  .title span {
+    font-weight: 600;
+    color: red;
+  }
+</style>
+<body>
+  <script src="https://d3js.org/d3.v3.min.js"></script>
+  <script>
+    function CovidChartBar(country, render) {
+      let data = [];
+      fetch(
+        `https://api.covid19api.com/live/country/${country}/status/confirmed`
+      ).then((response) =>
+        response
+          .json()
+          .then((res) => {
+            let covidData = [];
+            res.forEach((el) => {
+              if (el.Date === "2021-03-11T00:00:00Z") {
+                let datum = {};
+                datum.label = el.Province;
+                datum.value = el.Confirmed;
+                return covidData.push(datum);
+              }
+            });
+            data.push(...covidData);
+            data.sort((a, b) => b.value - a.value);
+            console.log(data);
+          })
+          .then((resolve, reject) => {
+            let margin = { top: 20, right: 10, bottom: 20, left: 50 };
+            let marginOverview = { top: 30, right: 10, bottom: 20, left: 40 };
+            let selectorHeight = 40;
+            let width = 1300 - margin.left - margin.right;
+            let height = 400 - margin.top - margin.bottom - selectorHeight;
+            let heightOverview =
+              80 - marginOverview.top - marginOverview.bottom;
+
+            let maxLength = d3.max(data.map((d) => d.label.length));
+
+            let barWidth = maxLength * 5;
+            let numBars = Math.round(width / barWidth);
+            let isScrollDisplayed = barWidth * data.length > width;
+            let xscale = d3.scale
+              .ordinal()
+              .domain(
+                data.slice(0, numBars).map(function (d) {
+                  return d.label;
+                })
+              )
+              .rangeBands([0, width], 0.2);
+
+            let yscale = d3.scale
+              .linear()
+              .domain([
+                0,
+                d3.max(data, function (d) {
+                  return d.value;
+                }),
+              ])
+              .range([height, 0]);
+
+            let xAxis = d3.svg.axis().scale(xscale).orient("bottom");
+            let yAxis = d3.svg.axis().scale(yscale).orient("left");
+
+            let svg = d3
+              .select(`.${render}`)
+              .append("svg")
+              .attr("width", width + margin.left + margin.right)
+              .attr("overflow", "visible")
+              .attr(
+                "height",
+                height + margin.top + margin.bottom + selectorHeight
+              );
+
+            let diagram = svg
+              .append("g")
+              .attr(
+                "transform",
+                "translate(" + margin.left + "," + margin.top + ")"
+              );
+
+            diagram
+              .append("g")
+              .attr("class", "x axis")
+              .attr("transform", "translate(0, " + height + ")")
+              .call(xAxis);
+
+            diagram.append("g").attr("class", "y axis").call(yAxis);
+
+            let bars = diagram.append("g");
+
+            bars
+              .selectAll("rect")
+              .data(data.slice(0, numBars), function (d) {
+                return d.label;
+              })
+              .enter()
+              .append("rect")
+              .attr("class", "bar")
+              .attr("y", (d) => {
+                return height;
+              })
+              .attr("height", 0)
+              .transition()
+              .duration(750)
+              .delay(function (d, i) {
+                return i * 150;
+              })
+              .attr("x", function (d) {
+                return xscale(d.label);
+              })
+              .attr("y", function (d) {
+                return yscale(d.value);
+              })
+              .attr("height", function (d) {
+                return height - yscale(d.value);
+              })
+              .attr("width", xscale.rangeBand());
+
+            let labels = diagram.append("g");
+
+            labels
+              .selectAll(".label")
+              .data(data.slice(0, numBars), function (d) {
+                return d.label;
+              })
+              .enter()
+              .append("text")
+              .attr("class", "label")
+              .style("display", (d) => {
+                return d.value === null ? "none" : null;
+              })
+              .attr("x", function (d) {
+                return xscale(d.label);
+              })
+              .style("fill", (d) => {
+                return d.value ===
+                  d3.max(data, (d) => {
+                    return d.value;
+                  })
+                  ? "red"
+                  : "red";
+              })
+              .attr("y", (d) => {
+                return height;
+              })
+              .attr("height", 0)
+              .transition()
+              .duration(750)
+              .delay((d, i) => {
+                return i * 150;
+              })
+              .text((d) => {
+                return d.value;
+              })
+              .attr("x", function (d) {
+                return xscale(d.label);
+              })
+              .attr("y", function (d) {
+                return yscale(d.value) - 5;
+              });
+
+            // svg
+            //   .selectAll(".label")
+            //   .data(data.slice(0, numBars), function (d) {
+            //     return d.label;
+            //   })
+            //   .enter()
+            //   .append("text")
+            //   .attr("class", "label")
+            //   .style("display", (d) => {
+            //     return d.value === null ? "none" : null;
+            //   })
+            //   .attr("x", function (d) {
+            //     return xscale(d.label);
+            //   })
+            //   .style("fill", (d) => {
+            //     return d.value ===
+            //       d3.max(data, (d) => {
+            //         return d.value;
+            //       })
+            //       ? "red"
+            //       : "red";
+            //   })
+            //   .attr("y", (d) => {
+            //     return height;
+            //   })
+            //   .attr("height", 0)
+            //   .transition()
+            //   .duration(750)
+            //   .delay((d, i) => {
+            //     return i * 150;
+            //   })
+            //   .text((d) => {
+            //     return d.value;
+            //   })
+            //   .attr("x", function (d) {
+            //     return xscale(d.label);
+            //   })
+            //   .attr("y", function (d) {
+            //     return yscale(d.value);
+            //   });
+
+            if (isScrollDisplayed) {
+              let xOverview = d3.scale
+                .ordinal()
+                .domain(
+                  data.map(function (d) {
+                    return d.label;
+                  })
+                )
+                .rangeBands([0, width], 0.2);
+              yOverview = d3.scale.linear().range([heightOverview, 0]);
+              yOverview.domain(yscale.domain());
+
+              let subBars = diagram.selectAll(".subBar").data(data);
+
+              subBars
+                .enter()
+                .append("rect")
+                .classed("subBar", true)
+                .attr({
+                  height: function (d) {
+                    return heightOverview - yOverview(d.value);
+                  },
+                  width: function (d) {
+                    return xOverview.rangeBand();
+                  },
+                  x: function (d) {
+                    return xOverview(d.label);
+                  },
+                  y: function (d) {
+                    return height + heightOverview + yOverview(d.value);
+                  },
+                });
+
+              var displayed = d3.scale
+                .quantize()
+                .domain([0, width])
+                .range(d3.range(data.length));
+
+              diagram
+                .append("rect")
+                .attr(
+                  "transform",
+                  "translate(0, " + (height + margin.bottom) + ")"
+                )
+                .attr("class", "mover")
+                .attr("x", 0)
+                .attr("y", 0)
+                .attr("height", selectorHeight)
+                .attr(
+                  "width",
+                  Math.round(parseFloat(numBars * width) / data.length)
+                )
+                .attr("pointer-events", "all")
+                .attr("cursor", "ew-resize")
+                .call(d3.behavior.drag().on("drag", display));
+
+              svg.on("scroll", display);
+            }
+            function display() {
+              let x = parseInt(d3.select(this).attr("x")),
+                nx = x + d3.event.dx,
+                w = parseInt(d3.select(this).attr("width")),
+                f,
+                nf,
+                new_data,
+                rects;
+
+              if (nx < 0 || nx + w > width) return;
+
+              d3.select(this).attr("x", nx);
+
+              f = displayed(x);
+              nf = displayed(nx);
+
+              if (f === nf) return;
+
+              new_data = data.slice(nf, nf + numBars);
+
+              xscale.domain(
+                new_data.map(function (d) {
+                  return d.label;
+                })
+              );
+              diagram.select(".x.axis").call(xAxis);
+
+              rects = bars.selectAll("rect").data(new_data, function (d) {
+                return d.label;
+              });
+
+              label = labels.selectAll(".label").data(new_data, function (d) {
+                return d.label;
+              });
+
+              rects.attr("x", function (d) {
+                return xscale(d.label);
+              });
+              label.attr("x", function (d) {
+                return xscale(d.label);
+              });
+
+              rects
+                .enter()
+                .append("rect")
+                .attr("class", "bar")
+                .attr("x", function (d) {
+                  return xscale(d.label);
+                })
+                .attr("y", function (d) {
+                  return yscale(d.value);
+                })
+                .attr("width", xscale.rangeBand())
+                .attr("height", function (d) {
+                  return height - yscale(d.value);
+                });
+
+              label
+                .enter()
+                .append("text")
+                .attr("class", "label")
+                .attr("x", function (d) {
+                  return xscale(d.label);
+                })
+                .style("fill", (d) => {
+                  return d.value ===
+                    d3.max(data, (d) => {
+                      return d.value;
+                    })
+                    ? "red"
+                    : "red";
+                })
+                .attr("y", function (d) {
+                  return yscale(d.value) - 5;
+                })
+                .text((d) => {
+                  return d.value;
+                })
+                .attr("width", xscale.rangeBand())
+                .attr("height", function (d) {
+                  return height - yscale(d.value);
+                });
+
+              label.exit().remove();
+              rects.exit().remove();
+            }
+          })
+      );
+    }
+    CovidChartBar("ukraine", "ukraine");
+    CovidChartBar("mexico", "mexico");
+    CovidChartBar("usa", "usa");
+    CovidChartBar("china", "china");
+  </script>
+
+  <div class="main">
+    <div class="block ukraine">
+      <p class="title">
+        covid-19 statistic of confirmed infected people in
+        <span>Ukraine</span> regions
+      </p>
+    </div>
+    <div class="block mexico">
+      <p class="title">
+        covid-19 statistic of confirmed infected people in
+        <span>Mexico</span> regions
+      </p>
+    </div>
+    <div class="block usa">
+      <p class="title">
+        covid-19 statistic of confirmed infected people in
+        <span>USA</span> regions
+      </p>
+    </div>
+    <div class="block china">
+      <p class="title">
+        covid-19 statistic of confirmed infected people in
+        <span>China</span> regions
+      </p>
+    </div>
+  </div>
+</body>
